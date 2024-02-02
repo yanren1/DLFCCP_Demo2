@@ -1,4 +1,6 @@
 import os
+import random
+
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
@@ -30,6 +32,31 @@ class SampleDataset(Dataset):
         # [make, body - style, wheel - base, engine - size, horsepower, peak - rpm, highway - mpg]
         return samples
 
+
+class XORDataset(Dataset):
+    def __init__(self, size=1000):
+        self.size = size
+        self.X = [[0, 0], [0, 1], [1, 0], [1, 1]]
+        self.Y = [0, 1, 1, 0]
+        self.data = self.generate_data()
+
+    def generate_data(self):
+        # 生成 XOR 数据
+        inputs = []
+        labels = []
+        for i in range(self.size):
+            idx = random.randint(0,3)
+            inputs.append(self.X[idx])
+            labels.append(self.Y[idx])
+
+        return {'inputs': inputs, 'labels': labels}
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, idx):
+        # sample = {'input': self.data['inputs'][idx], 'label': self.data['labels'][idx]}
+        return torch.tensor(self.data['inputs'][idx]).float(), torch.tensor(self.data['labels'][idx]).float()
 # if __name__ == '__main__':
 #     from torch.utils.data import DataLoader, random_split
 #     train_ratio = 0.85

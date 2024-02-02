@@ -7,11 +7,14 @@ from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 import torchvision
 from torchvision import transforms, models
+from torchvision.transforms import transforms
 
 from tqdm import tqdm
 import numpy as np
-from backbone.model import MyResnet18
-
+from backbone.model import MyResnet18,simpleMLP,SimpleCNN
+from dataloader.dataloader import XORDataset
+from backbone.ghostnetv2_torch import MyGhostnetv2
+from PIL import Image, ImageDraw, ImageFont
 import time
 
 
@@ -32,43 +35,51 @@ def train():
     debug = False
     use_pretrain = False
 
-    # split train and val sets
-    train_ratio = 0.9
-    # dataset = SampleDataset(root_dir='data',file_name='output_file.csv')
-    transform = transforms.Compose([
-        # transforms.Resize((224, 224)),
+    # split train and val set
+
+
+
+    transform_train = transforms.Compose([
+
+        # transforms.RandomResizedCrop(size = 28),
+        # transforms.ColorJitter(),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomRotation(degrees=30),
         transforms.ToTensor(),
     ])
-    dataset = torchvision.datasets.FashionMNIST(root='data', train=True, download=True,
-                                                transform=transform, )
+    transform_val = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+    train_dataset = torchvision.datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform_train)
+    val_dataset = torchvision.datasets.FashionMNIST(root='./data', train=False, download=True, transform=transform_val)
 
+    # train_dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
+    # val_dataset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_val)
 
-    # train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-    train_dataset = torchvision.datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform)
-    val_dataset = torchvision.datasets.FashionMNIST(root='./data', train=False, download=True, transform=transform)
-
-    batch_size = 4096
+    batch_size = int(128)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=0,
-        pin_memory=True,
+        pin_memory=False,
         drop_last=True,
     )
-    val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=5, shuffle=True)
 
 
     #backbone
-    # backbone = simpleMLP(in_channels=7,
-    #                     hidden_channels=[16,1],
-    #                     # norm_layer=nn.LayerNorm,
-    #                     dropout=0, inplace=False).cuda()
+    backbone = simpleMLP(in_channels=2,
+                        # hidden_channels=[1024,2048,4096,1024,512,10],
+                        hidden_channels=[2,1],
+                        # norm_layer=nn.BatchNorm1d,
+                        dropout=0, inplace=False,use_sigmoid=False).cuda()
 
-    backbone = MyResnet18().cuda()
-
+    # backbone = MyResnet18().cuda()
+    # backbone = MyGhostnetv2(num_classes=10, width=0.5, dropout=0.1).cuda()
     criterion = nn.CrossEntropyLoss().cuda()
+
 
 
     # try read pre-train model
@@ -80,13 +91,13 @@ def train():
             print(f'No {weights_pth}')
 
     # set lr,#epoch, optimizer and scheduler
-    lr = 1e-5
+    lr = 1e-3
     optimizer = optim.Adam(
         backbone.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=1e-5, amsgrad=False)
 
 
-    num_epoch = 100
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epoch, eta_min=1e-9)
+    num_epoch = 50
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epoch, eta_min=1e-5)
     current_time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
     model_save_pth = os.path.join('model_saved', current_time)
     os.mkdir(model_save_pth)
@@ -99,6 +110,7 @@ def train():
         for sample, target in train_loader:
             backbone.zero_grad()
             sample, target = sample.cuda(), target.cuda()
+            # print(sample.shape)
             # print(sample.shape)
             output = backbone(sample)
             loss = criterion(output, target)
@@ -139,9 +151,40 @@ def train():
             val_ce = np.mean(val_loss_list)
             accuracy = correct / total
 
+            # img_grid = torchvision.utils.make_grid(val_sample)
+            # writer.add_image('Predicted Images', img_grid, epoch + 1)
+            # writer.add_text('Predicted Labels', str(predicted.tolist()), epoch + 1)
 
-            writer.add_scalar('Validation ce', val_ce, epoch + 1)
-            writer.add_scalar('Validation accuracy', accuracy, epoch + 1)
+            resized_images = torch.nn.functional.interpolate(val_sample, size=(512, 512), mode='bilinear',
+                                                          align_corners=False)
+
+            # class_labels = {
+            #     0: 'T-shirt/top',
+            #     1: 'Trouser',
+            #     2: 'Pullover',
+            #     3: 'Dress',
+            #     4: 'Coat',
+            #     5: 'Sandal',
+            #     6: 'Shirt',
+            #     7: 'Sneaker',
+            #     8: 'Bag',
+            #     9: 'Ankle boot'
+            # }
+            #
+            # predicted_labels = [class_labels[label.item()] for label in predicted]
+            # actual_labels = [class_labels[label.item()] for label in val_target]
+            # # Create image grid
+            # img_grid = torchvision.utils.make_grid(resized_images,)
+            # import matplotlib.pyplot as plt
+            # # Create a figure and add labels
+            # fig, ax = plt.subplots(figsize=(10, 10))
+            # ax.imshow(img_grid.permute(1, 2, 0).cpu().numpy())
+            # ax.set_title(f'Predicted: {predicted_labels}\nActual: {actual_labels}')
+            # writer.add_figure('Predicted Images with Labels', fig, global_step=epoch  + 1)
+            #
+            #
+            # writer.add_scalar('Validation ce', val_ce, epoch + 1)
+            # writer.add_scalar('Validation accuracy', accuracy, epoch + 1)
 
             print(f'VAL Epoch:{epoch} Train ce = {Train_ce}, '
                   f'val ce = {val_ce} , val accuracy = {accuracy}')
@@ -150,7 +193,7 @@ def train():
             backbone.train()
 
     torch.save(backbone.state_dict(), os.path.join(model_save_pth,'final.pt'))
-    dummy_input = torch.randn(1, 7, requires_grad=True).cuda()
+    dummy_input = torch.randn([1, 1, 28, 28], requires_grad=True).cuda()
     torch.onnx.export(backbone,  # model being run
                       dummy_input,  # model input (or a tuple for multiple inputs)
                       os.path.join(model_save_pth,'final.onnx'),  # where to save the model
