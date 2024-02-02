@@ -41,7 +41,6 @@ class XORDataset(Dataset):
         self.data = self.generate_data()
 
     def generate_data(self):
-        # 生成 XOR 数据
         inputs = []
         labels = []
         for i in range(self.size):
@@ -57,6 +56,7 @@ class XORDataset(Dataset):
     def __getitem__(self, idx):
         # sample = {'input': self.data['inputs'][idx], 'label': self.data['labels'][idx]}
         return torch.tensor(self.data['inputs'][idx]).float(), torch.tensor(self.data['labels'][idx]).float()
+
 # if __name__ == '__main__':
 #     from torch.utils.data import DataLoader, random_split
 #     train_ratio = 0.85

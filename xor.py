@@ -35,7 +35,7 @@ val_loader = DataLoader(val_dataset, batch_size=5, shuffle=True)
 
 
 backbone = simpleMLP(in_channels=2,
-                     hidden_channels=[ 2,1],
+                     hidden_channels=[1],
                      # norm_layer=nn.BatchNorm1d,
                      dropout=0, inplace=False, use_sigmoid=True)
 

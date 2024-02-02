@@ -184,7 +184,7 @@ class GhostNetV2(nn.Module):
 
         # building first layer
         output_channel = _make_divisible(16 * width, 4)
-        self.conv_stem = nn.Conv2d(3, output_channel, 3, 1, 1, bias=False)
+        self.conv_stem = nn.Conv2d(1, output_channel, 3, 1, 1, bias=False)
         self.bn1 = nn.BatchNorm2d(output_channel)
         self.act1 = nn.ReLU(inplace=True)
         input_channel = output_channel

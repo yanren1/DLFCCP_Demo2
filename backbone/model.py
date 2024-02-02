@@ -41,7 +41,7 @@ class simpleMLP(nn.Module):
 
     def forward(self, x):
         # print(x.shape)
-        # x = x.view(x.size(0), -1)
+        x = x.view(x.size(0), -1)
         x = self.mlp(x)
         if self.use_sigmoid:
             x = torch.sigmoid(x)
@@ -65,18 +65,23 @@ class SimpleCNN(nn.Module):
         self.relu1 = nn.ReLU()
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
         self.relu2 = nn.ReLU()
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(64 * 7 * 7, 128)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1)
         self.relu3 = nn.ReLU()
-        self.fc2 = nn.Linear(128, 10)  # 输出层有10个类别
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.flatten = nn.Flatten()
+        self.fc1 = nn.Linear(128 * 7 * 7, 256)
+        self.relu3 = nn.ReLU()
+        self.fc2 = nn.Linear(256, 10)  # 输出层有10个类别
 
     def forward(self, x):
-        x = self.pool1(self.relu1(self.conv1(x)))
-        x = self.pool2(self.relu2(self.conv2(x)))
+        x = self.relu1(self.conv1(x))
+        x = self.relu2(self.conv2(x))
+        x = self.relu3(self.conv3(x))
         x = self.flatten(x)
         x = self.relu3(self.fc1(x))
         x = self.fc2(x)
@@ -84,10 +89,10 @@ class SimpleCNN(nn.Module):
 
 
 if __name__ == '__main__':
-    model = MyResnet18()
+    model = SimpleCNN()
     sample = torch.randn([512, 1, 28, 28])
-    weights = ResNet18_Weights.DEFAULT
-    preprocess = weights.transforms()
-    print(preprocess)
+    # weights = ResNet18_Weights.DEFAULT
+    # preprocess = weights.transforms()
+    # print(preprocess)
     out = model(sample)
     print(model)
