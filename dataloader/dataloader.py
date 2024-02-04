@@ -18,7 +18,7 @@ class SampleDataset(Dataset):
         samples = self.samples[index]
         # sample, target = samples[:-3],samples[-3:]
 
-        return samples[:-1], samples[-1]
+        return samples[1:], samples[0].long()
 
     def __len__(self):
         return len(self.samples)
@@ -26,10 +26,15 @@ class SampleDataset(Dataset):
     def __read_xlsx(self):
         f_pth = os.path.join(self.root_dir, self.file_name)
         # f_pth = os.path.join(root_dir, 'data.xlsx')
-        df = pd.read_csv(f_pth,usecols=['make', 'body-style', 'wheel-base', 'engine-size', 'horsepower', 'peak-rpm', 'highway-mpg','price'])
+        df = pd.read_csv(f_pth,usecols=['body-style', 'wheel-base', 'engine-size', 'horsepower', 'peak-rpm', 'highway-mpg', 'price','make'])
+        # ['body-style', 'wheel-base', 'engine-size', 'horsepower', 'peak-rpm', 'highway-mpg', 'price']
+        # samples = torch.from_numpy(df.to_numpy()).float()
+        # [make, body - style, wheel - base, engine - size, horsepower, peak - rpm, highway - mpg]
+        # print(samples)
+        # samples = df.to_dict(orient='list')
+
 
         samples = torch.from_numpy(df.to_numpy()).float()
-        # [make, body - style, wheel - base, engine - size, horsepower, peak - rpm, highway - mpg]
         return samples
 
 

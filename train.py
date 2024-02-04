@@ -36,23 +36,29 @@ def train():
     use_pretrain = False
 
     # split train and val set
-    transform_train = transforms.Compose([
-        # transforms.RandomResizedCrop(size = 28),
-        # transforms.ColorJitter(),
-        # transforms.RandomHorizontalFlip(),
-        # transforms.RandomRotation(degrees=30),
-        transforms.ToTensor(),
-    ])
-    transform_val = transforms.Compose([
-        transforms.ToTensor(),
-    ])
-    train_dataset = torchvision.datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform_train)
-    val_dataset = torchvision.datasets.FashionMNIST(root='./data', train=False, download=True, transform=transform_val)
+    # transform_train = transforms.Compose([
+    #     # transforms.RandomResizedCrop(size = 28),
+    #     # transforms.ColorJitter(),
+    #     # transforms.RandomHorizontalFlip(),
+    #     # transforms.RandomRotation(degrees=30),
+    #     transforms.ToTensor(),
+    # ])
+    # transform_val = transforms.Compose([
+    #     transforms.ToTensor(),
+    # ])
+    # train_dataset = torchvision.datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform_train)
+    # val_dataset = torchvision.datasets.FashionMNIST(root='./data', train=False, download=True, transform=transform_val)
 
     # train_dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
     # val_dataset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_val)
 
-    batch_size = int(1024*3)
+    train_ratio = 0.8
+    dataset = SampleDataset(root_dir='data',file_name='output_file.csv')
+    train_size = int(train_ratio * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
+    batch_size = int(60)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -61,12 +67,12 @@ def train():
         pin_memory=False,
         drop_last=True,
     )
-    val_loader = DataLoader(val_dataset, batch_size=5, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=True)
 
     # backbone
-    backbone = simpleMLP(in_channels=28*28,
-                        # hidden_channels=[1024,2048,4096,1024,512,10],
-                        hidden_channels=[10],
+    backbone = simpleMLP(in_channels=7,
+                        # hidden_channels=[1024,2048,4096,1024,512,18],
+                        hidden_channels=[16,32,64,128,18],
                         norm_layer=nn.BatchNorm1d,
                         dropout=0, inplace=False,use_sigmoid=False).cuda()
 
@@ -85,7 +91,7 @@ def train():
 
     # set lr,#epoch, optimizer and scheduler
     lr = 1e-3
-    num_epoch = 50
+    num_epoch = 10000
     optimizer = optim.Adam(
         backbone.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=1e-5, amsgrad=False)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epoch, eta_min=1e-5)
@@ -101,9 +107,9 @@ def train():
         loss_list = []
         for sample, target in train_loader:
             backbone.zero_grad()
+            # print(sample.shape, target.shape)
             sample, target = sample.cuda(), target.cuda()
-            # print(sample.shape)
-            # print(sample.shape)
+            # print(sample, target)
             output = backbone(sample)
             loss = criterion(output, target)
 
@@ -147,8 +153,8 @@ def train():
             # writer.add_image('Predicted Images', img_grid, epoch + 1)
             # writer.add_text('Predicted Labels', str(predicted.tolist()), epoch + 1)
 
-            resized_images = torch.nn.functional.interpolate(val_sample, size=(512, 512), mode='bilinear',
-                                                          align_corners=False)
+            # resized_images = torch.nn.functional.interpolate(val_sample, size=(512, 512), mode='bilinear',
+            #                                               align_corners=False)
 
             # class_labels = {
             #     0: 'T-shirt/top',
